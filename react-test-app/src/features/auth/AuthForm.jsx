@@ -1,23 +1,18 @@
 import {useState} from "react";
-import Form from "react-bootstrap/Form";
-import {Button, Card} from "react-bootstrap";
+import {Button, Card, Form} from "react-bootstrap";
 
 /**
- * Function that handles form creation and submission
- * @returns {React.JSX.Element}
- * @constructor
+ * Creates a reusable form.
+ * Handles only email and password input values.
+ *
  */
-export const LoginForm = () => {
-    const [form, setForm] = useState({ email: "", password: "" });
-
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setForm((prev) => ({ ...prev, [name]: value }));
-    };
+export function AuthForm({ submitLabel, onSubmit }) {
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        console.log(form);
+        onSubmit({ email, password });
     };
 
     return (
@@ -29,8 +24,8 @@ export const LoginForm = () => {
                     <Form.Control
                         name="email"
                         type="email"
-                        value={form.email}
-                        onChange={handleChange}
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
                         placeholder="name@example.com"
                     />
                 </Form.Group>
@@ -40,14 +35,14 @@ export const LoginForm = () => {
                     <Form.Control
                         name="password"
                         type="password"
-                        value={form.password}
-                        onChange={handleChange}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
                         placeholder="Enter Password"
                     />
                 </Form.Group>
 
                 <Button type="submit" variant="primary">
-                    Login
+                    {submitLabel}
                 </Button>
             </Form>
         </Card>
