@@ -1,0 +1,141 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Description: Serverless backend (Cognito + DynamoDB + HTTP API + Lambda) for the React app
+
+Globals:
+  Function:
+    Runtime: nodejs24.x
+    Timeout: 10
+    MemorySize: 128
+
+Parameters:
+  CognitoUserPoolName:
+    Type: String
+    Default: fitness-app-user-pool
+
+  CognitoUserPoolClientName:
+    Type: String
+    Default: fitness-app-client-user-pool
+
+Resources:
+  MyCognitoUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Ref CognitoUserPoolName
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+      UsernameAttributes:
+        - email
+      AutoVerifiedAttributes:
+        - email
+      Schema:
+        - AttributeDataType: String
+          Name: email
+          Required: true
+
+  MyCognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref MyCognitoUserPool
+      ClientName: !Ref CognitoUserPoolClientName
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+
+  AppDataTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: AppData
+      BillingMode:
+        PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+
+  MyHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins:
+          - http://localhost:5173
+        AllowHeaders:
+          - Authorization
+          - Content-Type
+        AllowMethods:
+          - GET
+          - PUT
+          - OPTIONS
+      Auth:
+        Authorizers:
+          CognitoJwtAuthorizer:
+            IdentitySource: "$request.header.Authorization"
+            JwtConfiguration:
+              issuer: !Sub "https://cognito-idp.${AWS::Region}.amazonaws.com/${MyCognitoUserPool}"
+              audience:
+                - !Ref MyCognitoUserPoolClient
+        DefaultAuthorizer: CognitoJwtAuthorizer
+
+  GetProfileFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: handlers/getProfile.handler
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref AppDataTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AppDataTable
+      Events:
+        GetProfile:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /profile
+            Method: get
+
+  SaveProfileFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: handlers/saveProfile.handler
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref AppDataTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AppDataTable
+      Events:
+        SaveProfile:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /profile
+            Method: put
+
+Outputs:
+  UserPoolId:
+    Description: Cognito User Pool ID
+    Value: !Ref MyCognitoUserPool
+
+  UserPoolClientId:
+    Description: Cognito App Client ID
+    Value: !Ref MyCognitoUserPoolClient
+
+  ApiUrl:
+    Description: Base URL of the HTTP API for frontend calls.
+    Value: !Sub "https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+
+  Region:
+    Description: AWS Region stack deployed to
+    Value: !Ref AWS::Region
