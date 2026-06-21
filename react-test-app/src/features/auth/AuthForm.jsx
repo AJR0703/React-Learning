@@ -1,12 +1,12 @@
 import {useState} from "react";
-import {Button, Card, Form} from "react-bootstrap";
+import {Alert, Button, Card, Form} from "react-bootstrap";
 
 /**
  * Creates a reusable form.
  * Handles only email and password input values.
  *
  */
-export function AuthForm({ submitLabel, onSubmit }) {
+export function AuthForm({ submitLabel, onSubmit, error, submitting }) {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
 
@@ -40,9 +40,10 @@ export function AuthForm({ submitLabel, onSubmit }) {
                         placeholder="Enter Password"
                     />
                 </Form.Group>
+                {error && <Alert variant="danger">{error}</Alert>}
 
-                <Button type="submit" variant="primary">
-                    {submitLabel}
+                <Button type="submit" variant="primary" disabled={submitting}>
+                    {submitting ? "Please wait..." : submitLabel}
                 </Button>
             </Form>
         </Card>
