@@ -1,5 +1,8 @@
-import { createContext, useState } from "react";
-
+import {createContext, useEffect, useState} from "react";
+import {
+    signIn, signUp, confirmSignUp, signOut,
+    getCurrentUser, fetchUserAttributes,
+} from "aws-amplify/auth";
 
 /**
  * Used to hold authentication data, set to null currently.
@@ -8,32 +11,54 @@ import { createContext, useState } from "react";
 export const AuthContext = createContext(null);
 
 
-/**
- * Tracks the state (who is logged in currrently), null = nobody logged in.
- * Defines login, signup and logout actions to manipulate the user state.
- *
- * .Provider broadcasts the user, login, signup and logout to all children components.
- *
- * @param children The app and all of the apps children.
- */
+const hydrateUser = async () => {
+    const { userId } = await getCurrentUser();
+    const attributes = await fetchUserAttributes();
+    return {
+        id: userId,
+        email: attributes.email,
+        name: attributes.email.split("@")[0]
+    };
+};
+
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
+    const [loading, setLoading] = useState(true);
 
-    // Placeholder login, returns dummy user.
-    // TODO: replace with API call.
-    const login = async ({ email }) => {
-        setUser({ id: "dummy", name: email.split("@")[0], email });
+    useEffect(() => {
+        hydrateUser()
+            .then(setUser)
+            .catch(() => setUser(null))
+            .finally(() => setLoading(false));
+    }, []);
+
+    const login = async ({ email, password }) => {
+        await signIn({ username: email, password });
+        setUser(await hydrateUser());
     };
 
-    const signup = async ({ email }) => {
-        setUser({ id: "dummy", name: email.split("@")[0], email });
+    const signup = async ({ email, password }) => {
+        await signUp({
+            username: email,
+            password,
+            options: { userAttributes: { email }},
+        });
     };
 
-    const logout = () => setUser(null);
+    const confirmSignup = async ({ email, code }) => {
+        await confirmSignUp({ username: email, confirmationCode: code });
+    };
+
+    const logout = async () => {
+        await signOut();
+        setUser(null);
+    };
 
     return (
-        <AuthContext.Provider value={{ user, login, signup, logout }}>
+        <AuthContext.Provider
+            value={{ user, loading, login, signup, confirmSignup, logout }}
+        >
             {children}
         </AuthContext.Provider>
-    );
+    )
 }
