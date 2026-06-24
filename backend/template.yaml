@@ -1,7 +1,7 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 
-Description: Serverless backend (Cognito + DynamoDB + HTTP API + Lambda) for the React app
+Description: Serverless handlers (Cognito + DynamoDB + HTTP API + Lambda) for the React app
 
 Globals:
   Function:
@@ -19,6 +19,8 @@ Parameters:
     Default: fitness-app-client-user-pool
 
 Resources:
+
+# ----------------------- Identity (Cognito) --------------------------------
   MyCognitoUserPool:
     Type: AWS::Cognito::UserPool
     Properties:
@@ -62,6 +64,24 @@ Resources:
         - AttributeName: userId
           KeyType: HASH
 
+  WorkoutDataTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: WorkoutData
+      BillingMode:
+        PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: workoutId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        - AttributeName: workoutId
+          KeyType: RANGE
+
+# ----------------------- API --------------------------------
   MyHttpApi:
     Type: AWS::Serverless::HttpApi
     Properties:
@@ -74,6 +94,8 @@ Resources:
         AllowMethods:
           - GET
           - PUT
+          - POST
+          - DELETE
           - OPTIONS
       Auth:
         Authorizers:
@@ -85,11 +107,12 @@ Resources:
                 - !Ref MyCognitoUserPoolClient
         DefaultAuthorizer: CognitoJwtAuthorizer
 
+# ----------------------- Profile Functions --------------------------------
   GetProfileFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: ./
-      Handler: handlers/getProfile.handler
+      Handler: handlers/profile/getProfile.handler
       Environment:
         Variables:
           TABLE_NAME: !Ref AppDataTable
@@ -108,7 +131,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: ./
-      Handler: handlers/saveProfile.handler
+      Handler: handlers/profile/saveProfile.handler
       Environment:
         Variables:
           TABLE_NAME: !Ref AppDataTable
@@ -122,6 +145,84 @@ Resources:
             ApiId: !Ref MyHttpApi
             Path: /profile
             Method: put
+
+# ----------------------- Workout Functions --------------------------------
+
+  GetWorkoutFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: handlers/workout/getWorkout.handler
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref WorkoutDataTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WorkoutDataTable
+      Events:
+        GetWorkout:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /workouts/{workoutId}
+            Method: get
+
+  CreateWorkoutFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: handlers/workout/createWorkout.handler
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref WorkoutDataTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WorkoutDataTable
+      Events:
+        CreateWorkout:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /workouts
+            Method: post
+
+  ListWorkoutsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: handlers/workout/listWorkouts.handler
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref WorkoutDataTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WorkoutDataTable
+      Events:
+        CreateWorkout:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /workouts
+            Method: get
+
+  RemoveWorkoutFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: handlers/workout/removeWorkout.handler
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref WorkoutDataTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WorkoutDataTable
+      Events:
+        RemoveWorkout:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyHttpApi
+            Path: /workouts/{workoutId}
+            Method: delete
 
 Outputs:
   UserPoolId:
