@@ -37,9 +37,10 @@ export function SignupPage() {
         try {
             await confirmSignup({email: pending.email, code });
             await login({ email: pending.email, password: pending.password });
-            navigate("/dashboard");
-        } catch {
-            setError("Invalid Code. Please check the code sent.");
+            navigate("/workout-page");
+        } catch (err) {
+            console.error("confirmSignup failed:", err);
+            setError(`${err.name ?? "Error"}: ${err.message ?? "Could not confirm."}`);
         } finally {
             setSubmitting(false);
         }
