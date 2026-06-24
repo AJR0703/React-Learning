@@ -11,6 +11,8 @@ import {
 export const AuthContext = createContext(null);
 
 
+// TODO: Create a confirm login for verifying code, acting as MFA
+
 const hydrateUser = async () => {
     const { userId } = await getCurrentUser();
     const attributes = await fetchUserAttributes();
@@ -33,6 +35,7 @@ export function AuthProvider({ children }) {
     }, []);
 
     const login = async ({ email, password }) => {
+        try { await signOut(); } catch { /* no existing session, ignore */ }
         await signIn({ username: email, password });
         setUser(await hydrateUser());
     };

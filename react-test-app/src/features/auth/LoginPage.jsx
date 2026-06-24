@@ -20,7 +20,7 @@ export function LoginPage() {
         setSubmitting(true);
         try {
             await login(credentials);
-            navigate("/dashboard");
+            navigate("/workout-page");
         } catch (err) {
             setError("Invalid Login. Please check email and password");
         } finally {
