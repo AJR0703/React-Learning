@@ -6,7 +6,7 @@ export function ConfirmForm({ email, onSubmit, error, submitting }) {
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        onSubmit({code});
+        onSubmit({code: code.trim()});
     };
 
     return (
